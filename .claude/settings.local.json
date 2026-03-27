@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm cache:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm config:*)",
+      "Bash(pnpm rebuild:*)",
+      "Bash(pnpm run:*)",
+      "Bash(node install.js)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill:*)",
+      "Bash(pkill -f Electron)",
+      "Bash(npx concurrently:*)",
+      "Bash(npm run:*)",
+      "Bash(pkill -x Electron)",
+      "Bash(node:*)",
+      "Bash(./node_modules/.bin/electron build/electron/main.js)",
+      "Bash(npx asar:*)"
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "name": "epub-reader",
+  "version": "1.0.0",
+  "description": "Electron-based EPUB Reader Desktop Application",
+  "homepage": "./",
+  "scripts": {
+    "start": "concurrently \"npm run react:start\" \"wait-on http://localhost:3000 && electron .\"",
+    "react:start": "react-scripts start",
+    "build": "react-scripts build",
+    "electron:start": "concurrently -k \"npm run react:start\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run build && cp -r electron build/ && electron-builder",
+    "electron:pack": "npm run build && cp -r electron build/ && electron-builder --dir",
+    "dist": "npm run build && cp -r electron build/ && electron-builder",
+    "dist:mac": "npm run dist",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.1",
+    "wait-on": "^7.2.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "build": {
+    "appId": "com.epubreader.app",
+    "productName": "EPUB Reader",
+    "extraMetadata": {
+      "main": "build/electron/main.js"
+    },
+    "extends": null,
+    "files": [
+      "build/**/*",
+      "build/electron/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.books"
+    },
+    "dmg": {
+      "title": "EPUB Reader",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "author": "EPUB Reader Team"
+}
