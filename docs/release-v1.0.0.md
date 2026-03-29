@@ -2,7 +2,7 @@
 
 ## GitHub Release Title
 
-`v1.0.0 - First public release`
+`Book Reader v1.0.0`
 
 ## GitHub Release Description
 
