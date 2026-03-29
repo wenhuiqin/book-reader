@@ -1,0 +1,46 @@
+<svg width="1600" height="980" viewBox="0 0 1600 980" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="980" rx="40" fill="#F6F2EA"/>
+  <rect x="40" y="40" width="1520" height="900" rx="28" fill="#FBF8F3" stroke="#E2D9CB"/>
+  <rect x="92" y="86" width="420" height="92" rx="24" fill="#F2EBDD"/>
+  <text x="118" y="132" fill="#241D16" font-size="42" font-family="Avenir Next, Arial, sans-serif" font-weight="700">Book Reader</text>
+  <text x="118" y="164" fill="#6A5F53" font-size="20" font-family="Avenir Next, Arial, sans-serif">Quiet bookshelf, local-first reading.</text>
+  <rect x="1288" y="95" width="188" height="56" rx="28" fill="#433528"/>
+  <text x="1348" y="131" fill="#F6F2EA" font-size="20" font-family="Avenir Next, Arial, sans-serif" font-weight="700">Import</text>
+  <rect x="92" y="224" width="1416" height="642" rx="28" fill="white" stroke="#E2D9CB"/>
+  <rect x="128" y="260" width="188" height="292" rx="22" fill="#BDAE97"/>
+  <rect x="140" y="272" width="164" height="268" rx="16" fill="#DDD2C2"/>
+  <text x="166" y="402" fill="#4A3B2D" font-size="26" font-family="Georgia, serif" font-weight="700">A Room</text>
+  <text x="154" y="434" fill="#6A5F53" font-size="18" font-family="Georgia, serif">Virginia Woolf</text>
+  <rect x="342" y="260" width="188" height="292" rx="22" fill="#8C9C91"/>
+  <rect x="354" y="272" width="164" height="268" rx="16" fill="#D9E1DB"/>
+  <text x="384" y="402" fill="#31453B" font-size="26" font-family="Georgia, serif" font-weight="700">Leaves</text>
+  <text x="379" y="434" fill="#577063" font-size="18" font-family="Georgia, serif">Collected Essays</text>
+  <rect x="556" y="260" width="188" height="292" rx="22" fill="#A98374"/>
+  <rect x="568" y="272" width="164" height="268" rx="16" fill="#E7D5CD"/>
+  <text x="611" y="402" fill="#593B30" font-size="26" font-family="Georgia, serif" font-weight="700">Poems</text>
+  <text x="599" y="434" fill="#7B5B50" font-size="18" font-family="Georgia, serif">1923 Edition</text>
+  <rect x="770" y="260" width="188" height="292" rx="22" fill="#74879F"/>
+  <rect x="782" y="272" width="164" height="268" rx="16" fill="#D7DFEA"/>
+  <text x="815" y="402" fill="#34495F" font-size="26" font-family="Georgia, serif" font-weight="700">Atlas</text>
+  <text x="800" y="434" fill="#5C7186" font-size="18" font-family="Georgia, serif">Travel Notes</text>
+  <rect x="984" y="260" width="188" height="292" rx="22" fill="#756955"/>
+  <rect x="996" y="272" width="164" height="268" rx="16" fill="#DED6CB"/>
+  <text x="1034" y="402" fill="#4A4034" font-size="26" font-family="Georgia, serif" font-weight="700">Paper</text>
+  <text x="1020" y="434" fill="#6E655B" font-size="18" font-family="Georgia, serif">Field Journal</text>
+  <rect x="1198" y="260" width="188" height="292" rx="22" fill="#7D5E64"/>
+  <rect x="1210" y="272" width="164" height="268" rx="16" fill="#E6D7DA"/>
+  <text x="1245" y="402" fill="#56363C" font-size="26" font-family="Georgia, serif" font-weight="700">Moon</text>
+  <text x="1232" y="434" fill="#76555C" font-size="18" font-family="Georgia, serif">Late Fragments</text>
+  <rect x="128" y="584" width="1258" height="238" rx="24" fill="#F7F2E9"/>
+  <text x="160" y="634" fill="#241D16" font-size="30" font-family="Avenir Next, Arial, sans-serif" font-weight="700">Library</text>
+  <text x="160" y="670" fill="#6A5F53" font-size="18" font-family="Avenir Next, Arial, sans-serif">EPUB and PDF files collected in one calm workspace.</text>
+  <rect x="160" y="714" width="1180" height="2" fill="#E7DDCF"/>
+  <circle cx="180" cy="770" r="8" fill="#433528"/>
+  <text x="204" y="778" fill="#4B4036" font-size="18" font-family="Avenir Next, Arial, sans-serif">Local import</text>
+  <circle cx="420" cy="770" r="8" fill="#433528"/>
+  <text x="444" y="778" fill="#4B4036" font-size="18" font-family="Avenir Next, Arial, sans-serif">EPUB metadata and cover</text>
+  <circle cx="780" cy="770" r="8" fill="#433528"/>
+  <text x="804" y="778" fill="#4B4036" font-size="18" font-family="Avenir Next, Arial, sans-serif">PDF support</text>
+  <circle cx="1020" cy="770" r="8" fill="#433528"/>
+  <text x="1044" y="778" fill="#4B4036" font-size="18" font-family="Avenir Next, Arial, sans-serif">Persistent reading progress</text>
+</svg>

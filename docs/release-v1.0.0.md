@@ -18,6 +18,7 @@ This version focuses on the core local reading workflow:
 - Restore reading progress and reader preferences locally
 - Read EPUB chapters with metadata, cover, and table of contents support
 - Read PDF files with basic page navigation
+- Use fine-grained auto-scroll speed control for long-form reading
 
 Current limitations:
 
@@ -47,6 +48,10 @@ Book Reader `v1.0.0` 是这个项目的首个公开版本。它是一个基于 E
 - 当前版本中的 PDF 控件仍然保持极简
 
 如果你遇到 bug 或打包分发相关问题，欢迎提交 issue，并附上系统版本、应用版本和复现步骤。
+
+### Release Asset
+
+- `Book Reader-1.0.0-arm64.dmg`
 
 ## Short Version
 

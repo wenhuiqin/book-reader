@@ -1,5 +1,5 @@
 {
-  "name": "epub-reader",
+  "name": "book-reader",
   "version": "1.0.0",
   "description": "A minimalist desktop reader built with Electron and React, with EPUB and PDF support.",
   "homepage": "./",
@@ -49,8 +49,8 @@
     ]
   },
   "build": {
-    "appId": "com.epubreader.app",
-    "productName": "EPUB Reader",
+    "appId": "com.wenhuiqin.bookreader",
+    "productName": "Book Reader",
     "extraMetadata": {
       "main": "build/electron/main.js"
     },
@@ -69,7 +69,7 @@
       "category": "public.app-category.books"
     },
     "dmg": {
-      "title": "EPUB Reader",
+      "title": "Book Reader",
       "contents": [
         {
           "x": 130,

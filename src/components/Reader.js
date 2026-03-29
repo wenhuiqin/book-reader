@@ -3,6 +3,19 @@ import EPUBParser from '../utils/EPUBParser';
 import PDFReader from './PDFReader';
 import { getBookFormat } from '../utils/bookFormat';
 
+const AUTO_SCROLL_MIN_SPEED = 0.1;
+const AUTO_SCROLL_MAX_SPEED = 3;
+const AUTO_SCROLL_STEP = 0.1;
+
+function clampAutoScrollSpeed(speed) {
+  const numericSpeed = Number(speed);
+  if (!Number.isFinite(numericSpeed)) return 1;
+  return Math.min(
+    AUTO_SCROLL_MAX_SPEED,
+    Math.max(AUTO_SCROLL_MIN_SPEED, Number(numericSpeed.toFixed(1)))
+  );
+}
+
 function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
   // 核心状态
   const [epubData, setEpubData] = useState(null);
@@ -26,6 +39,7 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
   const contentRef = useRef(null);
   const settingsRef = useRef(null);
   const autoScrollRef = useRef(null);
+  const autoScrollCarryRef = useRef(0);
   const hasRestoredProgress = useRef(false);
   const hasRestoredChapter = useRef(false);
   const scrollRestoreTimerRef = useRef(null);
@@ -107,6 +121,7 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
     isRestoringProgressRef.current = false;
     dragSessionRef.current = null;
     lastPersistedProgressRef.current = null;
+    autoScrollCarryRef.current = 0;
     setCoverImage(null);
     setCoverResolved(false);
     setCurrentChapter(0);
@@ -136,7 +151,7 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
     setFontSize(savedProgress.fontSize || 16);
     setTheme(savedProgress.theme || 'light');
     if (typeof savedProgress.autoScrollSpeed === 'number') {
-      setAutoScrollSpeed(savedProgress.autoScrollSpeed);
+      setAutoScrollSpeed(clampAutoScrollSpeed(savedProgress.autoScrollSpeed));
     }
   }, [savedProgress]);
 
@@ -202,6 +217,8 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
   useEffect(() => {
     if (!autoScroll || !contentRef.current || loading) return undefined;
 
+    autoScrollCarryRef.current = 0;
+
     const tick = () => {
       const el = contentRef.current;
       if (!el) return;
@@ -211,19 +228,29 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
 
       if (el.scrollTop >= maxTop - 2) {
         if (epubData && currentChapter < maxReaderChapter) {
+          autoScrollCarryRef.current = 0;
           setCurrentChapter((prev) => prev + 1);
           return;
         }
+        autoScrollCarryRef.current = 0;
         setAutoScroll(false);
         return;
       }
 
-      el.scrollTop += autoScrollSpeed;
+      autoScrollCarryRef.current += autoScrollSpeed;
+      const scrollDelta = Math.floor(autoScrollCarryRef.current);
+
+      if (scrollDelta > 0) {
+        el.scrollTop = Math.min(maxTop, el.scrollTop + scrollDelta);
+        autoScrollCarryRef.current -= scrollDelta;
+      }
+
       autoScrollRef.current = window.requestAnimationFrame(tick);
     };
 
     autoScrollRef.current = window.requestAnimationFrame(tick);
     return () => {
+      autoScrollCarryRef.current = 0;
       if (autoScrollRef.current) {
         window.cancelAnimationFrame(autoScrollRef.current);
         autoScrollRef.current = null;
@@ -595,9 +622,19 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
                 <div className="settings-row">
                   <span className="font-label">滚动速度</span>
                   <div className="font-controls">
-                    <button className="font-btn" onClick={() => setAutoScrollSpeed((s) => Math.max(0.5, Number((s - 0.5).toFixed(1))))}>-</button>
+                    <button
+                      className="font-btn"
+                      onClick={() => setAutoScrollSpeed((s) => clampAutoScrollSpeed(s - AUTO_SCROLL_STEP))}
+                    >
+                      -
+                    </button>
                     <span className="font-value">{autoScrollSpeed.toFixed(1)}</span>
-                    <button className="font-btn" onClick={() => setAutoScrollSpeed((s) => Math.min(3, Number((s + 0.5).toFixed(1))))}>+</button>
+                    <button
+                      className="font-btn"
+                      onClick={() => setAutoScrollSpeed((s) => clampAutoScrollSpeed(s + AUTO_SCROLL_STEP))}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               )}
