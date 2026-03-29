@@ -3,3 +3,15 @@ build/
 dist/
 .DS_Store
 *.log
+coverage/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.pnpm-store/
+*.tsbuildinfo
+.idea/
+.vscode/
+.qoder/
+.claude/

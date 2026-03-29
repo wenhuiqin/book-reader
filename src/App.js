@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import Bookshelf from './components/Bookshelf';
 import Reader from './components/Reader';
 
@@ -65,10 +65,23 @@ function App() {
 
   const handleProgressChange = (bookPath, patch) => {
     setReadingProgress((prev) => {
+      const current = prev[bookPath] || {};
+      const isSameProgress =
+        current.currentChapter === patch.currentChapter &&
+        current.fontSize === patch.fontSize &&
+        current.theme === patch.theme &&
+        current.autoScrollSpeed === patch.autoScrollSpeed &&
+        current.scrollPercent === patch.scrollPercent &&
+        Math.abs((current.scrollTop || 0) - (patch.scrollTop || 0)) < 12;
+
+      if (isSameProgress) {
+        return prev;
+      }
+
       const next = {
         ...prev,
         [bookPath]: {
-          ...(prev[bookPath] || {}),
+          ...current,
           ...patch,
           updatedAt: Date.now(),
         },

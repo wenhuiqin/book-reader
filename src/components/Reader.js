@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EPUBParser from '../utils/EPUBParser';
+import PDFReader from './PDFReader';
+import { getBookFormat } from '../utils/bookFormat';
 
-function Reader({ book, onClose, savedProgress, onProgressChange }) {
+function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
   // 核心状态
   const [epubData, setEpubData] = useState(null);
   const [zip, setZip] = useState(null);
@@ -9,6 +11,7 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
   const [currentChapter, setCurrentChapter] = useState(0);
   const [chapterContent, setChapterContent] = useState('');
   const [coverImage, setCoverImage] = useState(null);
+  const [coverResolved, setCoverResolved] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // 阅读设置
@@ -24,11 +27,102 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
   const settingsRef = useRef(null);
   const autoScrollRef = useRef(null);
   const hasRestoredProgress = useRef(false);
+  const hasRestoredChapter = useRef(false);
+  const scrollRestoreTimerRef = useRef(null);
+  const chapterLoadTokenRef = useRef(0);
+  const shouldPersistOnChapterLoadRef = useRef(false);
+  const isRestoringProgressRef = useRef(false);
+  const dragSessionRef = useRef(null);
+  const persistTimerRef = useRef(null);
+  const lastPersistedProgressRef = useRef(null);
+  const boundsFrameRef = useRef(null);
+  const pendingBoundsRef = useRef(null);
+
+  const hasCoverPage = Boolean(coverImage);
+  const maxReaderChapter = epubData ? epubData.spine.length - (hasCoverPage ? 0 : 1) : 0;
+  const toReaderChapterIndex = (spineIndex) => spineIndex + (hasCoverPage ? 1 : 0);
+  const toSpineChapterIndex = (readerIndex) => readerIndex - (hasCoverPage ? 1 : 0);
+
+  const persistProgress = (force = false) => {
+    const el = contentRef.current;
+    if (!epubData || !onProgressChange || !el || isRestoringProgressRef.current) return;
+
+    const scrollTop = el.scrollTop;
+    const scrollHeight = el.scrollHeight;
+    const clientHeight = el.clientHeight;
+    const scrollPercent = scrollHeight > clientHeight
+      ? Math.round((scrollTop / (scrollHeight - clientHeight)) * 100)
+      : 0;
+
+    const nextProgress = {
+      currentChapter: Math.max(0, toSpineChapterIndex(currentChapter)),
+      fontSize,
+      theme,
+      autoScrollSpeed,
+      scrollTop,
+      scrollPercent
+    };
+
+    const lastProgress = lastPersistedProgressRef.current;
+    const isSameProgress = lastProgress &&
+      lastProgress.currentChapter === nextProgress.currentChapter &&
+      lastProgress.fontSize === nextProgress.fontSize &&
+      lastProgress.theme === nextProgress.theme &&
+      lastProgress.autoScrollSpeed === nextProgress.autoScrollSpeed &&
+      lastProgress.scrollPercent === nextProgress.scrollPercent &&
+      Math.abs(lastProgress.scrollTop - nextProgress.scrollTop) < 12;
+
+    if (!force && isSameProgress) return;
+
+    lastPersistedProgressRef.current = nextProgress;
+    onProgressChange(book.path, nextProgress);
+  };
+
+  const schedulePersistProgress = (delay = 220, force = false) => {
+    if (persistTimerRef.current) {
+      window.clearTimeout(persistTimerRef.current);
+    }
+    persistTimerRef.current = window.setTimeout(() => {
+      persistTimerRef.current = null;
+      persistProgress(force);
+    }, delay);
+  };
+
+  const commitWindowBounds = (bounds) => {
+    pendingBoundsRef.current = bounds;
+    if (boundsFrameRef.current || !window.electronAPI?.setCurrentWindowBounds) return;
+    boundsFrameRef.current = window.requestAnimationFrame(() => {
+      boundsFrameRef.current = null;
+      if (!pendingBoundsRef.current) return;
+      window.electronAPI.setCurrentWindowBounds(pendingBoundsRef.current);
+      pendingBoundsRef.current = null;
+    });
+  };
 
   // 初始化：加载书籍和恢复进度
   useEffect(() => {
+    hasRestoredProgress.current = false;
+    hasRestoredChapter.current = false;
+    shouldPersistOnChapterLoadRef.current = false;
+    isRestoringProgressRef.current = false;
+    dragSessionRef.current = null;
+    lastPersistedProgressRef.current = null;
+    setCoverImage(null);
+    setCoverResolved(false);
+    setCurrentChapter(0);
+    setChapterContent('');
+    setLoading(true);
     loadBook();
     return () => {
+      if (scrollRestoreTimerRef.current) {
+        window.clearTimeout(scrollRestoreTimerRef.current);
+      }
+      if (persistTimerRef.current) {
+        window.clearTimeout(persistTimerRef.current);
+      }
+      if (boundsFrameRef.current) {
+        window.cancelAnimationFrame(boundsFrameRef.current);
+      }
       if (zip) zip.folder(null);
       if (coverImage) URL.revokeObjectURL(coverImage);
     };
@@ -44,14 +138,16 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
     if (typeof savedProgress.autoScrollSpeed === 'number') {
       setAutoScrollSpeed(savedProgress.autoScrollSpeed);
     }
-  }, []);
+  }, [savedProgress]);
 
-  // 封面加载完成后，恢复上次阅读的章节
+  // 解析完成后，恢复上次阅读的章节
   useEffect(() => {
-    if (!coverImage || !epubData) return;
+    if (!epubData || !coverResolved || hasRestoredChapter.current) return;
+    hasRestoredChapter.current = true;
+    shouldPersistOnChapterLoadRef.current = true;
     const savedChapter = savedProgress?.currentChapter || 0;
-    setCurrentChapter(Math.min(savedChapter + 1, epubData.spine.length));
-  }, [coverImage, epubData]);
+    setCurrentChapter(Math.min(toReaderChapterIndex(savedChapter), epubData.spine.length));
+  }, [epubData, coverResolved, hasCoverPage]);
 
   // 加载章节内容
   useEffect(() => {
@@ -60,17 +156,35 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
     }
   }, [currentChapter, epubData, coverImage]);
 
-  // 自动保存进度
+  // 自动保存进度（包括滚动位置）
   useEffect(() => {
-    if (!epubData || !onProgressChange) return;
-    const savedChapterIndex = coverImage ? currentChapter - 1 : currentChapter;
-    onProgressChange(book.path, {
-      currentChapter: Math.max(0, savedChapterIndex),
-      fontSize,
-      theme,
-      autoScrollSpeed
-    });
+    if (!epubData || !onProgressChange || !contentRef.current) return;
+
+    const handleScroll = () => {
+      schedulePersistProgress(autoScroll ? 120 : 240);
+    };
+
+    const el = contentRef.current;
+    el.addEventListener('scroll', handleScroll);
+
+    return () => {
+      schedulePersistProgress(0, true);
+      el.removeEventListener('scroll', handleScroll);
+    };
   }, [book.path, currentChapter, fontSize, theme, autoScrollSpeed, epubData, onProgressChange, coverImage]);
+
+  useEffect(() => {
+    if (!chapterContent || !shouldPersistOnChapterLoadRef.current) return undefined;
+
+    const timerId = window.setTimeout(() => {
+      if (!isRestoringProgressRef.current) {
+        persistProgress(true);
+        shouldPersistOnChapterLoadRef.current = false;
+      }
+    }, 80);
+
+    return () => window.clearTimeout(timerId);
+  }, [chapterContent, currentChapter, fontSize, theme, autoScrollSpeed]);
 
   // 设置面板点击外部关闭
   useEffect(() => {
@@ -96,7 +210,7 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
       if (maxTop <= 0) return;
 
       if (el.scrollTop >= maxTop - 2) {
-        if (epubData && currentChapter < epubData.spine.length) {
+        if (epubData && currentChapter < maxReaderChapter) {
           setCurrentChapter((prev) => prev + 1);
           return;
         }
@@ -115,7 +229,64 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
         autoScrollRef.current = null;
       }
     };
-  }, [autoScroll, autoScrollSpeed, currentChapter, epubData, loading]);
+  }, [autoScroll, autoScrollSpeed, currentChapter, epubData, loading, maxReaderChapter]);
+
+  useEffect(() => {
+    const handleMouseMove = (event) => {
+      const session = dragSessionRef.current;
+      if (!session || !window.electronAPI?.setCurrentWindowBounds) return;
+
+      const deltaX = event.screenX - session.startScreenX;
+      const deltaY = event.screenY - session.startScreenY;
+
+      if (session.type === 'move') {
+        commitWindowBounds({
+          x: session.startBounds.x + deltaX,
+          y: session.startBounds.y + deltaY,
+        });
+        return;
+      }
+
+      const nextBounds = { ...session.startBounds };
+      if (session.type.includes('e')) nextBounds.width = session.startBounds.width + deltaX;
+      if (session.type.includes('s')) nextBounds.height = session.startBounds.height + deltaY;
+      if (session.type.includes('w')) {
+        nextBounds.x = session.startBounds.x + deltaX;
+        nextBounds.width = session.startBounds.width - deltaX;
+      }
+      if (session.type.includes('n')) {
+        nextBounds.y = session.startBounds.y + deltaY;
+        nextBounds.height = session.startBounds.height - deltaY;
+      }
+
+      const minWidth = 390;
+      const minHeight = 740;
+      if (nextBounds.width < minWidth) {
+        if (session.type.includes('w')) nextBounds.x -= minWidth - nextBounds.width;
+        nextBounds.width = minWidth;
+      }
+      if (nextBounds.height < minHeight) {
+        if (session.type.includes('n')) nextBounds.y -= minHeight - nextBounds.height;
+        nextBounds.height = minHeight;
+      }
+
+      commitWindowBounds(nextBounds);
+    };
+
+    const handleMouseUp = () => {
+      dragSessionRef.current = null;
+      if (pendingBoundsRef.current) {
+        commitWindowBounds(pendingBoundsRef.current);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // 处理书中链接点击
   useEffect(() => {
@@ -140,13 +311,13 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
       });
 
       if (targetChapter >= 0) {
-        setCurrentChapter(targetChapter + (coverImage ? 2 : 1));
+        setCurrentChapter(toReaderChapterIndex(targetChapter));
       }
     };
 
     contentRef.current.addEventListener('click', handleClick);
     return () => contentRef.current?.removeEventListener('click', handleClick);
-  }, [epubData, zip, coverImage]);
+  }, [epubData, zip, hasCoverPage]);
 
   const loadBook = async () => {
     try {
@@ -194,6 +365,7 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
         setCoverImage(coverUrl);
       }
 
+      setCoverResolved(true);
       setLoading(false);
     } catch (error) {
       console.error('加载 EPUB 失败:', error);
@@ -204,6 +376,8 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
 
   const loadChapter = async (index) => {
     if (!zip || !epubData || !parser) return;
+    const loadToken = ++chapterLoadTokenRef.current;
+    shouldPersistOnChapterLoadRef.current = true;
 
     // 第 0 章显示封面
     if (index === 0 && coverImage) {
@@ -217,12 +391,14 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
           <div class="cover-author">${metadata.creator}</div>
         </div>
       `;
+      if (loadToken !== chapterLoadTokenRef.current) return;
       setChapterContent(coverHtml);
       if (contentRef.current) contentRef.current.scrollTop = 0;
+      isRestoringProgressRef.current = false;
       return;
     }
 
-    const spineIndex = coverImage ? index - 1 : index;
+    const spineIndex = toSpineChapterIndex(index);
     const chapter = epubData.spine[spineIndex];
 
     if (!chapter) {
@@ -231,32 +407,92 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
     }
 
     const content = await parser.getChapterContent(zip, chapter);
+    if (loadToken !== chapterLoadTokenRef.current) return;
     setChapterContent(content);
-    if (contentRef.current) contentRef.current.scrollTop = 0;
+
+    // 恢复滚动位置（延迟执行，等待 DOM 渲染）
+    if (scrollRestoreTimerRef.current) {
+      window.clearTimeout(scrollRestoreTimerRef.current);
+    }
+
+    if (contentRef.current && savedProgress) {
+      isRestoringProgressRef.current = true;
+      scrollRestoreTimerRef.current = window.setTimeout(() => {
+        const el = contentRef.current;
+        const savedReaderChapter = toReaderChapterIndex(savedProgress.currentChapter || 0);
+        if (el && savedReaderChapter === index) {
+          const maxScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+          const nextScrollTop = typeof savedProgress.scrollPercent === 'number'
+            ? Math.round(maxScrollTop * savedProgress.scrollPercent / 100)
+            : Math.max(0, savedProgress.scrollTop || 0);
+          el.scrollTop = Math.min(maxScrollTop, nextScrollTop);
+        } else if (el) {
+          el.scrollTop = 0;
+        }
+        isRestoringProgressRef.current = false;
+        persistProgress(true);
+        shouldPersistOnChapterLoadRef.current = false;
+      }, 50);
+    } else if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+      isRestoringProgressRef.current = false;
+    }
   };
 
   const handlePrevChapter = () => {
-    if (currentChapter > 0) setCurrentChapter(currentChapter - 1);
+    if (currentChapter > 0) {
+      persistProgress(true);
+      setCurrentChapter(currentChapter - 1);
+    }
   };
 
   const handleNextChapter = () => {
-    const maxChapter = coverImage ? epubData.spine.length : epubData.spine.length - 1;
-    if (currentChapter < maxChapter) {
+    if (currentChapter < maxReaderChapter) {
+      persistProgress(true);
       setCurrentChapter(currentChapter + 1);
     }
   };
 
   const handleTocClick = (index) => {
+    shouldPersistOnChapterLoadRef.current = true;
+    persistProgress(true);
     setCurrentChapter(index);
     setShowToc(false);
+  };
+
+  const startWindowInteraction = async (type, event) => {
+    if (!window.electronAPI?.getCurrentWindowBounds) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startBounds = await window.electronAPI.getCurrentWindowBounds();
+    if (!startBounds) return;
+    dragSessionRef.current = {
+      type,
+      startBounds,
+      startScreenX: event.screenX,
+      startScreenY: event.screenY,
+    };
+  };
+
+  const handleCloseReader = () => {
+    persistProgress(true);
+    onClose();
   };
 
   const isDarkTheme = theme === 'dark';
 
   if (loading) {
     return (
-      <div className="reader-wrapper">
+      <div className={`reader-wrapper ${isDarkTheme ? 'dark-theme' : ''}`}>
         <div className="phone-frame">
+          <div className="shell-drag-zone shell-drag-top" />
+          <div className="shell-drag-zone shell-drag-left" />
+          <div className="shell-drag-zone shell-drag-right" />
+          <div className="shell-drag-zone shell-drag-bottom" />
+          <div className="shell-resize-handle shell-resize-nw" onMouseDown={(event) => startWindowInteraction('nw', event)} />
+          <div className="shell-resize-handle shell-resize-ne" onMouseDown={(event) => startWindowInteraction('ne', event)} />
+          <div className="shell-resize-handle shell-resize-sw" onMouseDown={(event) => startWindowInteraction('sw', event)} />
+          <div className="shell-resize-handle shell-resize-se" onMouseDown={(event) => startWindowInteraction('se', event)} />
           <div className="phone-notch"></div>
           <div className="phone-display">
             <div className="loading"><div className="spinner"></div></div>
@@ -268,16 +504,43 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
 
   if (!epubData) return null;
 
-  const progress = Math.round(((currentChapter + 1) / epubData.spine.length) * 100);
-  const displayChapter = currentChapter === 0 && coverImage ? '封面' : `${currentChapter + 1}/${epubData.spine.length}`;
+  const currentSpineChapter = Math.max(0, toSpineChapterIndex(currentChapter));
+  const progress = hasCoverPage && currentChapter === 0
+    ? 0
+    : Math.min(100, Math.round(((currentSpineChapter + 1) / epubData.spine.length) * 100));
+  const displayChapter = hasCoverPage && currentChapter === 0
+    ? '封面'
+    : `${currentSpineChapter + 1}/${epubData.spine.length}`;
 
   return (
     <div className={`reader-wrapper ${isDarkTheme ? 'dark-theme' : ''}`}>
       <div className="phone-frame">
+        <div className="shell-drag-zone shell-drag-top" />
+        <div className="shell-drag-zone shell-drag-left" />
+        <div className="shell-drag-zone shell-drag-right" />
+        <div className="shell-drag-zone shell-drag-bottom" />
+        <div className="shell-resize-handle shell-resize-nw" onMouseDown={(event) => startWindowInteraction('nw', event)} />
+        <div className="shell-resize-handle shell-resize-ne" onMouseDown={(event) => startWindowInteraction('ne', event)} />
+        <div className="shell-resize-handle shell-resize-sw" onMouseDown={(event) => startWindowInteraction('sw', event)} />
+        <div className="shell-resize-handle shell-resize-se" onMouseDown={(event) => startWindowInteraction('se', event)} />
+        {/* 顶部可拖拽区域 */}
+        <div
+          className="drag-region"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '40px',
+            zIndex: 1000,
+            WebkitAppRegion: 'drag'
+          }}
+        />
+
         <div className="phone-notch"></div>
         <div className="phone-display">
           {/* 顶部导航 */}
-          <div className="reader-top-bar">
+          <div className="reader-top-bar" style={{ WebkitAppRegion: 'no-drag' }}>
             <button className="icon-btn" onClick={() => setShowToc(true)}>☰</button>
             <span className="book-title-mini">{epubData.metadata.title}</span>
             <div className="top-bar-actions">
@@ -285,7 +548,7 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
                 {isDarkTheme ? '☀' : '☾'}
               </button>
               <button className="icon-btn" onClick={() => setShowSettings(!showSettings)}>⚙</button>
-              <button className="icon-btn close-btn" onClick={onClose}>✕</button>
+              <button className="icon-btn close-btn" onClick={handleCloseReader}>✕</button>
             </div>
           </div>
 
@@ -308,7 +571,7 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
                 {displayChapter} · {progress}%
               </div>
             </div>
-            <button className="nav-btn" onClick={handleNextChapter} disabled={currentChapter >= epubData.spine.length}>›</button>
+            <button className="nav-btn" onClick={handleNextChapter} disabled={currentChapter >= maxReaderChapter}>›</button>
           </div>
 
           {/* 设置面板 */}
@@ -351,7 +614,7 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
                   <button className="toc-close" onClick={() => setShowToc(false)}>×</button>
                 </div>
                 <div className="toc-list">
-                  {coverImage && (
+                  {hasCoverPage && (
                     <div
                       className={`toc-item ${currentChapter === 0 ? 'active' : ''}`}
                       onClick={() => handleTocClick(0)}
@@ -362,8 +625,8 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
                   {epubData.toc.map((item, i) => (
                     <div
                       key={i}
-                      className={`toc-item ${currentChapter === i + (coverImage ? 1 : 0) ? 'active' : ''}`}
-                      onClick={() => handleTocClick(i + (coverImage ? 1 : 0))}
+                      className={`toc-item ${currentChapter === i + (hasCoverPage ? 1 : 0) ? 'active' : ''}`}
+                      onClick={() => handleTocClick(i + (hasCoverPage ? 1 : 0))}
                     >
                       {item.label}
                     </div>
@@ -376,6 +639,14 @@ function Reader({ book, onClose, savedProgress, onProgressChange }) {
       </div>
     </div>
   );
+}
+
+function Reader(props) {
+  const format = getBookFormat(props.book?.path);
+  if (format === 'pdf') {
+    return <PDFReader {...props} />;
+  }
+  return <EPUBReader {...props} />;
 }
 
 export default Reader;

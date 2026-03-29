@@ -8,7 +8,7 @@ let readerWindow = null;
 
 const WINDOW_PRESETS = {
   shelf: { width: 1440, height: 920, minWidth: 1100, minHeight: 720, resizable: true },
-  reader: { width: 430, height: 930, minWidth: 390, minHeight: 740, resizable: false },
+  reader: { width: 430, height: 930, minWidth: 390, minHeight: 740, resizable: true },
 };
 
 function getResourcePath() {
@@ -146,10 +146,10 @@ ipcMain.handle('close-reader-window', async () => {
   return { ok: true };
 });
 
-// 选择本地 EPUB 文件
-ipcMain.handle('select-epub-file', async () => {
+// 选择本地书籍文件
+ipcMain.handle('select-book-file', async () => {
   const result = await dialog.showOpenDialog(shelfWindow, {
-    filters: [{ name: 'EPUB Files', extensions: ['epub'] }],
+    filters: [{ name: 'Books', extensions: ['epub', 'pdf'] }],
     properties: ['openFile'],
   });
 
@@ -228,4 +228,27 @@ ipcMain.handle('window-action', async (event, action) => {
       return { ok: false, error: '未知操作' };
   }
   return { ok: true };
+});
+
+ipcMain.handle('get-current-window-bounds', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return null;
+  return win.getBounds();
+});
+
+ipcMain.handle('set-current-window-bounds', async (event, nextBounds) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed() || !nextBounds) return { ok: false };
+
+  const currentBounds = win.getBounds();
+  const minWidth = WINDOW_PRESETS.reader.minWidth;
+  const minHeight = WINDOW_PRESETS.reader.minHeight;
+
+  const width = Math.max(minWidth, Math.round(nextBounds.width ?? currentBounds.width));
+  const height = Math.max(minHeight, Math.round(nextBounds.height ?? currentBounds.height));
+  const x = Math.round(nextBounds.x ?? currentBounds.x);
+  const y = Math.round(nextBounds.y ?? currentBounds.y);
+
+  win.setBounds({ x, y, width, height });
+  return { ok: true, bounds: win.getBounds() };
 });

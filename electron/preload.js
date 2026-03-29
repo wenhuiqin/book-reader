@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // 暴露安全的 API 给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   // 选择 EPUB 文件
-  selectEpubFile: () => ipcRenderer.invoke('select-epub-file'),
+  selectBookFile: () => ipcRenderer.invoke('select-book-file'),
 
   // 下载 EPUB
   downloadEpub: (url, savePath) => ipcRenderer.invoke('download-epub', url, savePath),
@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 窗口控制（书架窗口）
   windowAction: (action) => ipcRenderer.invoke('window-action', action),
+  getCurrentWindowBounds: () => ipcRenderer.invoke('get-current-window-bounds'),
+  setCurrentWindowBounds: (bounds) => ipcRenderer.invoke('set-current-window-bounds', bounds),
 
   // 监听主进程消息
   onOpenBook: (callback) => {

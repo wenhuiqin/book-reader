@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
+import { getBookBaseName, getBookFormat } from '../utils/bookFormat';
+
+const metadataCache = new Map();
 
 function BookCard({ book, onClick }) {
   const [metadata, setMetadata] = useState(null);
   const [coverUrl, setCoverUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const cardRef = useRef(null);
+
+  const cacheKey = book.path;
+  const format = getBookFormat(book.path);
 
   const pickFallbackCoverPath = async (zip, epubData, parser) => {
     const allFiles = Object.keys(zip.files || {});
@@ -30,16 +38,51 @@ function BookCard({ book, onClick }) {
   };
 
   useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '240px' }
+    );
+
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldLoad) return;
     loadBookMetadata();
-    return () => {
-      if (coverUrl) {
-        URL.revokeObjectURL(coverUrl);
-      }
-    };
-  }, [book.path]);
+  }, [book.path, shouldLoad]);
 
   const loadBookMetadata = async () => {
     try {
+      const cached = metadataCache.get(cacheKey);
+      if (cached) {
+        setMetadata(cached.metadata);
+        setCoverUrl(cached.coverUrl || null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      if (format === 'pdf') {
+        const fallbackMetadata = {
+          title: getBookBaseName(book.name),
+          creator: 'PDF 文档',
+        };
+        setMetadata(fallbackMetadata);
+        metadataCache.set(cacheKey, { metadata: fallbackMetadata, coverUrl: null });
+        setLoading(false);
+        return;
+      }
+
       // 检查是否在 Electron 环境中
       if (!window.electronAPI) {
         console.warn('不在 Electron 环境中，无法读取 EPUB 文件');
@@ -63,7 +106,7 @@ function BookCard({ book, onClick }) {
       const zip = await JSZip.loadAsync(bytes);
       const EPUBParser = (await import('../utils/EPUBParser')).default;
       const parser = new EPUBParser();
-      const epubData = await parser.parse(bytes);
+      const epubData = await parser.parseFromZip(zip);
 
       setMetadata(epubData.metadata);
 
@@ -76,7 +119,22 @@ function BookCard({ book, onClick }) {
       }
       if (coverFile) {
         const coverBlob = await coverFile.async('blob');
-        setCoverUrl(URL.createObjectURL(coverBlob));
+        const nextCoverUrl = URL.createObjectURL(coverBlob);
+        setCoverUrl((prev) => {
+          if (prev) {
+            URL.revokeObjectURL(prev);
+          }
+          return nextCoverUrl;
+        });
+        metadataCache.set(cacheKey, {
+          metadata: epubData.metadata,
+          coverUrl: nextCoverUrl,
+        });
+      } else {
+        metadataCache.set(cacheKey, {
+          metadata: epubData.metadata,
+          coverUrl: null,
+        });
       }
       setLoading(false);
     } catch (error) {
@@ -86,7 +144,8 @@ function BookCard({ book, onClick }) {
   };
 
   return (
-    <div className="book-card" onClick={onClick}>
+    <div className="book-card" onClick={onClick} ref={cardRef}>
+      <div className="book-card-glow" aria-hidden="true" />
       <div className="book-cover">
         {loading ? (
           <div className="loading">

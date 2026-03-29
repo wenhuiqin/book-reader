@@ -1,8 +1,16 @@
 {
   "name": "epub-reader",
   "version": "1.0.0",
-  "description": "Electron-based EPUB Reader Desktop Application",
+  "description": "A minimalist desktop reader built with Electron and React, with EPUB and PDF support.",
   "homepage": "./",
+  "keywords": [
+    "electron",
+    "react",
+    "reader",
+    "epub",
+    "pdf",
+    "desktop"
+  ],
   "scripts": {
     "start": "concurrently \"npm run react:start\" \"wait-on http://localhost:3000 && electron .\"",
     "react:start": "react-scripts start",
@@ -17,6 +25,7 @@
   },
   "dependencies": {
     "jszip": "^3.10.1",
+    "pdfjs-dist": "^5.5.207",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1"
@@ -54,7 +63,9 @@
       "output": "dist"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.books"
     },
     "dmg": {
@@ -73,5 +84,14 @@
       ]
     }
   },
-  "author": "EPUB Reader Team"
+  "author": "xuwencai",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wenhuiqin/book-reader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wenhuiqin/book-reader/issues"
+  },
+  "homepage_url": "https://github.com/wenhuiqin/book-reader"
 }

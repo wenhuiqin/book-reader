@@ -11,7 +11,10 @@ import JSZip from 'jszip';
 class EPUBParser {
   async parse(arrayBuffer) {
     const zip = await JSZip.loadAsync(arrayBuffer);
+    return this.parseFromZip(zip);
+  }
 
+  async parseFromZip(zip) {
     // 1. 读取 container.xml 找到 content.opf 的位置
     const containerXml = await zip.file('META-INF/container.xml').async('text');
     const containerDom = new DOMParser().parseFromString(containerXml, 'text/xml');

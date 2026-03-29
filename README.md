@@ -1,85 +1,227 @@
-# EPUB Reader
+# Book Reader
 
-基于 Electron + React 的桌面 EPUB 阅读器。
+[English](#english) | [中文](#中文)
 
-## 功能特性
+A minimalist desktop reader built with Electron and React, focused on local-first reading with a clean bookshelf and a lightweight floating reader window.
 
-- 📚 **书架管理** - 可视化展示所有 EPUB 书籍
-- 📖 **阅读功能** - 舒适的阅读界面，支持字体大小调节
-- 📑 **目录导航** - 支持 EPUB 目录跳转
-- 📁 **本地添加** - 从文件系统选择 EPUB 文件
-- 📂 **目录扫描** - 批量扫描文件夹中的 EPUB
-- 🔗 **网络下载** - 支持从 URL 下载 EPUB 文件
+一个基于 Electron 和 React 构建的极简桌面阅读器，强调本地优先、安静的书架体验，以及轻量的悬浮阅读窗口。
 
-## 技术架构
+## English
 
-### EPUB 格式解析
-EPUB 文件本质上是 ZIP 压缩包，包含：
-- `META-INF/container.xml` - 指向 content.opf 的位置
-- `content.opf` - 书籍元数据和章节列表
-- `*.xhtml` / `*.html` - 实际章节内容
-- `toc.ncx` 或 `nav.xhtml` - 目录信息
+### Overview
 
-### 核心技术栈
-- **Electron** - 跨平台桌面应用框架
-- **React 18** - 前端 UI 框架
-- **JSZip** - 解析 EPUB (ZIP) 文件
+Book Reader is a local desktop reading app for EPUB and PDF files. It keeps the interaction model intentionally simple: import books from local files, open them in an independent reader window, and restore your reading progress automatically.
 
-## 快速开始
+### Features
 
-### 安装依赖
+- Minimal bookshelf interface for local books
+- Independent reader window with drag and resize support
+- EPUB parsing with metadata, cover, table of contents, and chapter rendering
+- PDF reading with page navigation and progress restore
+- Local persistence for reading progress and reader preferences
+
+### Supported Formats
+
+- `EPUB`: EPUB 2 / EPUB 3, metadata, table of contents, cover image, chapter rendering
+- `PDF`: basic page reading, page switching, theme switching, progress restore
+
+Not supported at the moment:
+
+- `MOBI`
+- `AZW / AZW3`
+- DRM-protected ebook files
+
+### Tech Stack
+
+- `Electron`
+- `React 18`
+- `JSZip`
+- `pdfjs-dist`
+
+### Getting Started
+
+Install dependencies:
+
 ```bash
-npm install
+pnpm install
 ```
 
-### 开发模式（推荐）
-直接启动 Electron 开发环境：
+Run the Electron development environment:
+
 ```bash
 npm run electron:start
 ```
 
-> 注意：不要运行 `npm start`，因为那会只启动 React 开发服务器，无法使用 Electron API（文件选择、目录扫描等功能）
+`npm start` only launches the React development server and does not expose Electron APIs.
 
-### 构建应用
+### Build
+
+Build the frontend bundle:
+
 ```bash
 npm run build
-npm run electron:build
 ```
 
-## 项目结构
+Package the desktop app for macOS:
 
+```bash
+npm run dist:mac
 ```
+
+Pack without generating an installer:
+
+```bash
+npm run electron:pack
+```
+
+### Project Structure
+
+```text
 book/
 ├── electron/
-│   ├── main.js          # Electron 主进程
-│   └── preload.js       # 预加载脚本
+│   ├── main.js
+│   └── preload.js
 ├── public/
+│   ├── electron.json
 │   └── index.html
 ├── src/
 │   ├── components/
-│   │   ├── App.js
-│   │   ├── Bookshelf.js      # 书架视图
-│   │   ├── BookCard.js       # 书籍卡片
-│   │   ├── Reader.js         # 阅读器
-│   │   └── AddBookModal.js   # 添加书籍模态框
+│   │   ├── BookCard.js
+│   │   ├── Bookshelf.js
+│   │   ├── PDFReader.js
+│   │   └── Reader.js
 │   ├── utils/
-│   │   └── EPUBParser.js     # EPUB 解析器
-│   ├── index.js
-│   └── index.css
-└── package.json
+│   │   ├── EPUBParser.js
+│   │   └── bookFormat.js
+│   ├── App.js
+│   ├── index.css
+│   └── index.js
+├── docs/
+├── package.json
+└── pnpm-lock.yaml
 ```
 
-## 支持的 EPUB 特性
+### Roadmap
 
-- ✅ EPUB 2 和 EPUB 3 格式
-- ✅ 书籍元数据（标题、作者、出版社等）
-- ✅ 目录导航（NCX 和 EPUB3 Nav）
-- ✅ 章节内容解析
-- ✅ 封面图片显示
-- ✅ 字体大小调节
-- ⏳ 书签功能（待实现）
-- ⏳ 阅读进度同步（待实现）
+- Application icon and release branding
+- Screenshots for README and release assets
+- Better PDF controls such as jump-to-page and zoom
+- Improved bookshelf organization and recent-reading entry points
 
-## 许可证
+### Release Notes
+
+Draft release notes for the first public version are available in `docs/release-v1.0.0.md`.
+
+### License
+
+MIT
+
+## 中文
+
+### 项目简介
+
+Book Reader 是一个面向本地文件的桌面阅读应用，当前支持 EPUB 与 PDF。它刻意保持简洁的交互模型：从本地导入书籍，在独立阅读窗口中打开，并自动恢复阅读进度。
+
+### 功能特性
+
+- 极简书架视图，用于管理本地书籍
+- 独立阅读窗口，支持拖拽和调整尺寸
+- EPUB 解析能力，支持元数据、封面、目录与章节渲染
+- PDF 分页阅读，支持页码切换与阅读进度恢复
+- 本地持久化保存阅读进度与阅读器偏好
+
+### 支持格式
+
+- `EPUB`：支持 EPUB 2 / EPUB 3、元数据、目录、封面和章节内容渲染
+- `PDF`：支持基础分页阅读、翻页、主题切换和进度恢复
+
+暂不支持：
+
+- `MOBI`
+- `AZW / AZW3`
+- 受 DRM 保护的电子书文件
+
+### 技术栈
+
+- `Electron`
+- `React 18`
+- `JSZip`
+- `pdfjs-dist`
+
+### 本地开发
+
+安装依赖：
+
+```bash
+pnpm install
+```
+
+启动 Electron 开发环境：
+
+```bash
+npm run electron:start
+```
+
+`npm start` 只会启动 React 开发服务器，无法访问 Electron 提供的本地文件与窗口能力。
+
+### 构建与打包
+
+构建前端资源：
+
+```bash
+npm run build
+```
+
+打包 macOS 应用：
+
+```bash
+npm run dist:mac
+```
+
+仅输出未封装安装器的应用目录：
+
+```bash
+npm run electron:pack
+```
+
+### 项目结构
+
+```text
+book/
+├── electron/
+│   ├── main.js
+│   └── preload.js
+├── public/
+│   ├── electron.json
+│   └── index.html
+├── src/
+│   ├── components/
+│   │   ├── BookCard.js
+│   │   ├── Bookshelf.js
+│   │   ├── PDFReader.js
+│   │   └── Reader.js
+│   ├── utils/
+│   │   ├── EPUBParser.js
+│   │   └── bookFormat.js
+│   ├── App.js
+│   ├── index.css
+│   └── index.js
+├── docs/
+├── package.json
+└── pnpm-lock.yaml
+```
+
+### 后续计划
+
+- 应用图标与发布品牌素材
+- README 与 Release 页面截图素材
+- 更完善的 PDF 控件，例如跳页和缩放
+- 更好的书架组织方式与最近阅读入口
+
+### Release 文案
+
+首个公开版本的 GitHub Release 文案草稿见 `docs/release-v1.0.0.md`。
+
+### 许可证
 
 MIT
