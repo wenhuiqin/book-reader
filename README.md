@@ -6,7 +6,7 @@ A local-first desktop reader for `EPUB` and `PDF`, built with Electron and React
 
 一个本地优先的极简桌面阅读器，支持 `EPUB` 与 `PDF`。
 
-[Download for macOS](https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg) · [GitHub Releases](https://github.com/wenhuiqin/book-reader/releases) · [Report an Issue](https://github.com/wenhuiqin/book-reader/issues)
+[Download for macOS](https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg) · [GitHub Releases](https://github.com/wenhuiqin/book-reader/releases) · [Report an Issue](https://github.com/wenhuiqin/book-reader/issues)
 
 ![Bookshelf Preview](./docs/assets/bookshelf-preview.svg)
 
@@ -42,7 +42,7 @@ If you want a focused reading app instead of a document management tool, this pr
 
 ### Download
 
-- macOS Apple Silicon: [Book Reader-1.0.0-arm64.dmg](https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg)
+- macOS Apple Silicon: [Book.Reader-1.0.0-arm64.dmg](https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg)
 - All releases: [GitHub Releases](https://github.com/wenhuiqin/book-reader/releases)
 
 If the direct download link does not work yet, publish the `v1.0.0` GitHub Release and upload the DMG from `dist/`.
@@ -147,7 +147,7 @@ Book Reader 想做得更简单一些：
 
 ### 下载
 
-- macOS Apple Silicon: [Book Reader-1.0.0-arm64.dmg](https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg)
+- macOS Apple Silicon: [Book.Reader-1.0.0-arm64.dmg](https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg)
 - 所有版本: [GitHub Releases](https://github.com/wenhuiqin/book-reader/releases)
 
 如果上面的直链暂时无法访问，说明 `v1.0.0` 的 GitHub Release 还没有正式发布。发布后上传 `dist/` 下的 DMG 即可生效。

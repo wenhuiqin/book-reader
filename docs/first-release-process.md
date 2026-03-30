@@ -72,7 +72,7 @@ Book Reader v1.0.0
 ```
 
 5. Paste the body from `docs/release-v1.0.0.md`.
-6. Attach `dist/Book Reader-1.0.0-arm64.dmg`.
+6. Attach `dist/Book.Reader-1.0.0-arm64.dmg`.
 7. Publish the release.
 
 ### Option B: Create with GitHub CLI
@@ -80,7 +80,7 @@ Book Reader v1.0.0
 If `gh` is already authenticated:
 
 ```bash
-gh release create v1.0.0 "dist/Book Reader-1.0.0-arm64.dmg" --title "Book Reader v1.0.0" --notes-file docs/release-v1.0.0.md
+gh release create v1.0.0 "dist/Book.Reader-1.0.0-arm64.dmg" --title "Book Reader v1.0.0" --notes-file docs/release-v1.0.0.md
 ```
 
 ## 6. Recommended release order

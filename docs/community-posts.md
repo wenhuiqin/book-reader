@@ -14,7 +14,7 @@ Open source:
 https://github.com/wenhuiqin/book-reader
 
 Download:
-https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg
+https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg
 
 ### 中文
 
@@ -29,7 +29,7 @@ https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-
 https://github.com/wenhuiqin/book-reader
 
 下载：
-https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg
+https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg
 
 ## V2EX
 
@@ -57,7 +57,7 @@ https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-
 https://github.com/wenhuiqin/book-reader
 
 macOS 下载：
-https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg
+https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg
 
 如果你愿意试试，欢迎提 issue 或直接给建议。
 
@@ -91,7 +91,7 @@ https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-
 https://github.com/wenhuiqin/book-reader
 
 macOS 下载：
-https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg
+https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg
 
 ## Reddit
 
@@ -116,6 +116,6 @@ Repo:
 https://github.com/wenhuiqin/book-reader
 
 macOS download:
-https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book%20Reader-1.0.0-arm64.dmg
+https://github.com/wenhuiqin/book-reader/releases/download/v1.0.0/Book.Reader-1.0.0-arm64.dmg
 
 I would appreciate feedback on the reading experience, not just the implementation.

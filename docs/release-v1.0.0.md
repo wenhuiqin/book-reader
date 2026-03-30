@@ -51,7 +51,7 @@ Book Reader `v1.0.0` 是这个项目的首个公开版本。它是一个基于 E
 
 ### Release Asset
 
-- `Book Reader-1.0.0-arm64.dmg`
+- `Book.Reader-1.0.0-arm64.dmg`
 
 ## Short Version
 
