@@ -1,7 +1,8 @@
 {
   "name": "book-reader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A minimalist desktop reader built with Electron and React, with EPUB and PDF support.",
+  "main": "electron/main.js",
   "homepage": "./",
   "keywords": [
     "electron",
@@ -12,20 +13,21 @@
     "desktop"
   ],
   "scripts": {
-    "start": "concurrently \"npm run react:start\" \"wait-on http://localhost:3000 && electron .\"",
+    "start": "concurrently -k \"npm run react:start\" \"npm run electron:start\"",
     "react:start": "react-scripts start",
     "build": "react-scripts build",
-    "electron:start": "concurrently -k \"npm run react:start\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:start": "wait-on http://localhost:3000 && electron electron/main.js",
     "electron:build": "npm run build && cp -r electron build/ && electron-builder",
     "electron:pack": "npm run build && cp -r electron build/ && electron-builder --dir",
-    "dist": "npm run build && cp -r electron build/ && electron-builder",
+    "dist": "npm run build && cp -r electron build/ && node scripts/generate-icon.js && bash scripts/generate-macos-icns.sh && electron-builder",
     "dist:mac": "npm run dist",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "iconv-lite": "^0.7.2",
     "jszip": "^3.10.1",
-    "pdfjs-dist": "^5.5.207",
+    "pdfjs-dist": "^4.0.379",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1"
@@ -34,6 +36,7 @@
     "concurrently": "^8.2.2",
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
+    "sharp": "^0.34.5",
     "wait-on": "^7.2.0"
   },
   "browserslist": {
@@ -51,6 +54,7 @@
   "build": {
     "appId": "com.wenhuiqin.bookreader",
     "productName": "Book Reader",
+    "icon": "build/icon.icns",
     "extraMetadata": {
       "main": "build/electron/main.js"
     },
@@ -63,10 +67,29 @@
       "output": "dist"
     },
     "mac": {
+      "icon": "build/icon.icns",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "category": "public.app-category.books"
+    },
+    "win": {
+      "icon": "build/icon-win.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Windows.${ext}"
     },
     "dmg": {
       "title": "Book Reader",
@@ -85,7 +108,7 @@
     }
   },
   "author": "xuwencai",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "https://github.com/wenhuiqin/book-reader.git"

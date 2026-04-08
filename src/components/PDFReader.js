@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { toUint8Array } from '../utils/binaryData';
 
+// 使用本地 worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
@@ -57,21 +59,24 @@ function PDFReader({ book, onClose, savedProgress, onProgressChange }) {
     const loadPdf = async () => {
       try {
         setLoading(true);
-        const result = await window.electronAPI.readEpubFile(book.path);
+        const result = await window.electronAPI.readFile(book.path);
+
         if (result.error) {
           alert('读取文件失败：' + result.error);
           onClose();
           return;
         }
 
-        const binaryString = atob(result.content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+        const bytes = toUint8Array(result.content);
+        if (!bytes.length) {
+          alert('PDF 数据格式错误');
+          onClose();
+          return;
         }
 
         const loadingTask = pdfjsLib.getDocument({ data: bytes });
         const loadedDoc = await loadingTask.promise;
+
         if (cancelled) {
           await loadedDoc.destroy();
           return;
@@ -83,8 +88,8 @@ function PDFReader({ book, onClose, savedProgress, onProgressChange }) {
         setTheme(savedProgress?.theme || 'light');
         setLoading(false);
       } catch (error) {
-        console.error('加载 PDF 失败:', error);
-        alert('无法打开 PDF 文件');
+        console.error('[PDF FATAL]', error);
+        alert('无法打开 PDF 文件：' + error.message);
         onClose();
       }
     };

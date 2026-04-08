@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取 EPUB 文件
   readEpubFile: (filePath) => ipcRenderer.invoke('read-epub-file', filePath),
 
+  // 读取任意文件（用于 PDF 等）
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+
+  // 读取文件元信息（用于缓存校验）
+  getFileMetadata: (filePath) => ipcRenderer.invoke('get-file-metadata', filePath),
+
+  // 读取文本文件（支持中文编码）
+  readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
+
   // 在文件管理器中显示
   showInFinder: (filePath) => ipcRenderer.invoke('show-in-finder', filePath),
 

@@ -14,16 +14,87 @@ class EPUBParser {
     return this.parseFromZip(zip);
   }
 
+  createParserError(message, details = {}) {
+    const error = new Error(message);
+    Object.assign(error, details);
+    return error;
+  }
+
+  async detectUnsupportedProtection(zip) {
+    const encryptionFile = zip.file('META-INF/encryption.xml');
+    if (!encryptionFile) return;
+
+    const encryptionXml = await encryptionFile.async('text');
+    if (!encryptionXml) return;
+
+    const encryptedTargets = Array.from(
+      encryptionXml.matchAll(/CipherReference\s+URI="([^"]+)"/gi),
+      ([, uri]) => uri.replace(/^\//, '').trim()
+    ).filter(Boolean);
+
+    const blocksCoreParsing = encryptedTargets.some((target) => {
+      const normalized = target.toLowerCase();
+      return normalized === 'meta-inf/container.xml' ||
+        normalized.endsWith('.opf') ||
+        normalized.endsWith('.ncx') ||
+        normalized.endsWith('.xhtml') ||
+        normalized.endsWith('.html');
+    });
+
+    if (!blocksCoreParsing) return;
+
+    const vendorMatch = encryptionXml.match(/<Proprietary>\s*([^<]+)\s*<\/Proprietary>/i);
+    const vendor = vendorMatch ? vendorMatch[1].trim() : '';
+    const algorithms = Array.from(
+      new Set(
+        Array.from(
+          encryptionXml.matchAll(/EncryptionMethod[^>]+Algorithm="([^"]+)"/gi),
+          ([, algorithm]) => algorithm
+        )
+      )
+    );
+
+    throw this.createParserError(
+      vendor
+        ? `此 EPUB 使用了 ${vendor} 的 DRM/加密保护，当前阅读器不支持解密。`
+        : '此 EPUB 使用了 DRM/加密保护，当前阅读器不支持解密。',
+      {
+        code: 'EPUB_DRM_UNSUPPORTED',
+        vendor,
+        algorithms,
+        encryptedTargets,
+      }
+    );
+  }
+
   async parseFromZip(zip) {
+    await this.detectUnsupportedProtection(zip);
+
     // 1. 读取 container.xml 找到 content.opf 的位置
-    const containerXml = await zip.file('META-INF/container.xml').async('text');
+    const containerFile = zip.file('META-INF/container.xml');
+    if (!containerFile) {
+      throw this.createParserError('EPUB 缺少 META-INF/container.xml', {
+        code: 'EPUB_INVALID_STRUCTURE',
+      });
+    }
+    const containerXml = await containerFile.async('text');
     const containerDom = new DOMParser().parseFromString(containerXml, 'text/xml');
-    const rootfilePath = containerDom
-      .getElementsByTagName('rootfile')[0]
-      .getAttribute('full-path');
+    const rootfile = containerDom.getElementsByTagName('rootfile')[0];
+    const rootfilePath = rootfile?.getAttribute('full-path');
+    if (!rootfilePath) {
+      throw this.createParserError('EPUB 的 container.xml 无法解析', {
+        code: 'EPUB_INVALID_STRUCTURE',
+      });
+    }
 
     // 2. 读取 content.opf 获取书籍信息
-    const opfContent = await zip.file(rootfilePath).async('text');
+    const opfFile = zip.file(rootfilePath);
+    if (!opfFile) {
+      throw this.createParserError(`EPUB 缺少 OPF 文件: ${rootfilePath}`, {
+        code: 'EPUB_INVALID_STRUCTURE',
+      });
+    }
+    const opfContent = await opfFile.async('text');
     const opfDom = new DOMParser().parseFromString(opfContent, 'text/xml');
 
     // 3. 解析书籍元数据
@@ -321,7 +392,7 @@ class EPUBParser {
             const base64 = await imgFile.async('base64');
             img.setAttribute('src', `data:${this.getMimeType(foundFile)};base64,${base64}`);
           } catch (error) {
-            console.warn('图片内联失败:', foundFile, error);
+            console.warn('[EPUBParser] 图片内联失败:', foundFile, error);
           }
         }
         continue;
@@ -331,7 +402,7 @@ class EPUBParser {
         const base64 = await imageFile.async('base64');
         img.setAttribute('src', `data:${this.getMimeType(resolvedPath)};base64,${base64}`);
       } catch (error) {
-        console.warn('图片内联失败:', resolvedPath, error);
+        console.warn('[EPUBParser] 图片内联失败:', resolvedPath, error);
       }
     }
   }

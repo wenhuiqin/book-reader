@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EPUBParser from '../utils/EPUBParser';
 import PDFReader from './PDFReader';
+import TXTReader from './TXTReader';
 import { getBookFormat } from '../utils/bookFormat';
+import { toUint8Array } from '../utils/binaryData';
 
 const AUTO_SCROLL_MIN_SPEED = 0.1;
 const AUTO_SCROLL_MAX_SPEED = 3;
@@ -52,10 +54,10 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
   const boundsFrameRef = useRef(null);
   const pendingBoundsRef = useRef(null);
 
-  const hasCoverPage = Boolean(coverImage);
-  const maxReaderChapter = epubData ? epubData.spine.length - (hasCoverPage ? 0 : 1) : 0;
-  const toReaderChapterIndex = (spineIndex) => spineIndex + (hasCoverPage ? 1 : 0);
-  const toSpineChapterIndex = (readerIndex) => readerIndex - (hasCoverPage ? 1 : 0);
+  const hasCoverPage = false; // 不再额外添加封面页，EPUB 通常自带封面
+  const maxReaderChapter = epubData ? epubData.spine.length : 0;
+  const toReaderChapterIndex = (spineIndex) => spineIndex;
+  const toSpineChapterIndex = (readerIndex) => readerIndex;
 
   const persistProgress = (force = false) => {
     const el = contentRef.current;
@@ -155,21 +157,39 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
     }
   }, [savedProgress]);
 
-  // 解析完成后，恢复上次阅读的章节
+  // 解析完成后，恢复上次阅读的章节（如果没有进度则从第 0 章开始）
   useEffect(() => {
     if (!epubData || !coverResolved || hasRestoredChapter.current) return;
     hasRestoredChapter.current = true;
     shouldPersistOnChapterLoadRef.current = true;
-    const savedChapter = savedProgress?.currentChapter || 0;
-    setCurrentChapter(Math.min(toReaderChapterIndex(savedChapter), epubData.spine.length));
-  }, [epubData, coverResolved, hasCoverPage]);
+
+    // 如果有封面且第一章节不是封面页，尝试找到封面章节
+    let initialChapter = savedProgress?.currentChapter ?? 0;
+    if (coverImage && epubData.spine.length > 0) {
+      // 查找包含封面的章节（通过 href 匹配）
+      const coverChapterIndex = epubData.spine.findIndex(ch => {
+        const coverPath = epubData.metadata.coverPath || epubData.metadata.coverHref;
+        if (!coverPath) return false;
+        const chapterPath = ch.href?.split('#')[0] || ch.contentPath;
+        const normalizedCover = coverPath.split('/').pop();
+        const normalizedChapter = chapterPath?.split('/').pop();
+        return normalizedCover && normalizedCover === normalizedChapter;
+      });
+
+      // 如果找到封面章节且它不是第一章，说明 spine 顺序可能有误
+      // 但 EPUB 的 spine 通常是正确的阅读顺序，所以我们不强制跳到封面章
+      // 只是确保封面图片能在需要时显示
+    }
+
+    setCurrentChapter(Math.min(initialChapter, epubData.spine.length - 1));
+  }, [epubData, coverResolved]);
 
   // 加载章节内容
   useEffect(() => {
-    if (epubData && currentChapter >= 0 && currentChapter <= epubData.spine.length) {
+    if (epubData && coverResolved && currentChapter >= 0 && currentChapter <= epubData.spine.length) {
       loadChapter(currentChapter);
     }
-  }, [currentChapter, epubData, coverImage]);
+  }, [currentChapter, epubData, coverResolved, coverImage]);
 
   // 自动保存进度（包括滚动位置）
   useEffect(() => {
@@ -355,10 +375,11 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
         return;
       }
 
-      const binaryString = atob(result.content);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+      const bytes = toUint8Array(result.content);
+      if (!bytes.length) {
+        alert('EPUB 数据格式错误');
+        onClose();
+        return;
       }
 
       const JSZip = (await import('jszip')).default;
@@ -366,37 +387,58 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
       setZip(loadedZip);
 
       const newParser = new EPUBParser();
-      const data = await newParser.parse(bytes);
+      const data = await newParser.parseFromZip(loadedZip);
       setEpubData(data);
       setParser(newParser);
 
-      // 加载封面
-      let coverFilePath = data.metadata.coverPath || data.metadata.coverHref;
+      // 加载封面 - 使用与 BookCard 相同的逻辑
+      let coverFilePath = data.metadata.coverPath;
       let coverFile = coverFilePath ? loadedZip.file(coverFilePath) : null;
 
+      if (!coverFile && data.metadata.coverHref) {
+        // 尝试用 coverHref 直接查找（可能是相对路径）
+        coverFile = loadedZip.file(data.metadata.coverHref);
+      }
+
       if (!coverFile) {
+        // 兜底：按文件名查找封面图片
         const allFiles = Object.keys(loadedZip.files || {});
         const imagePattern = /\.(jpg|jpeg|png|webp|gif)$/i;
         const coverNamePattern = /(cover|fengmian|front|thumbnail|thumb)/i;
+
+        // 优先找文件名包含 cover 的图片
         const guessed = allFiles.find((filePath) =>
           imagePattern.test(filePath) && coverNamePattern.test(filePath)
         );
         if (guessed) {
           coverFile = loadedZip.file(guessed);
+        } else {
+          // 再兜底：找第一张图片
+          const firstImage = allFiles.find((filePath) => imagePattern.test(filePath));
+          if (firstImage) {
+            coverFile = loadedZip.file(firstImage);
+          }
         }
       }
 
       if (coverFile) {
-        const coverBlob = await coverFile.async('blob');
-        const coverUrl = URL.createObjectURL(coverBlob);
-        setCoverImage(coverUrl);
+        try {
+          const coverBlob = await coverFile.async('blob');
+          const coverUrl = URL.createObjectURL(coverBlob);
+          setCoverImage(coverUrl);
+        } catch (e) {
+          console.error('[EPUB] 封面加载失败:', e);
+        }
       }
 
       setCoverResolved(true);
       setLoading(false);
     } catch (error) {
       console.error('加载 EPUB 失败:', error);
-      alert('无法打开 EPUB 文件');
+      const message = error?.code === 'EPUB_DRM_UNSUPPORTED'
+        ? error.message
+        : '无法打开 EPUB 文件';
+      alert(message);
       onClose();
     }
   };
@@ -406,36 +448,24 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
     const loadToken = ++chapterLoadTokenRef.current;
     shouldPersistOnChapterLoadRef.current = true;
 
-    // 第 0 章显示封面
-    if (index === 0 && coverImage) {
-      const metadata = epubData.metadata;
-      const coverHtml = `
-        <div class="cover-page">
-          <div class="cover-image-wrapper">
-            <img src="${coverImage}" alt="封面" class="cover-image" />
-          </div>
-          <div class="cover-title">${metadata.title}</div>
-          <div class="cover-author">${metadata.creator}</div>
-        </div>
-      `;
-      if (loadToken !== chapterLoadTokenRef.current) return;
-      setChapterContent(coverHtml);
-      if (contentRef.current) contentRef.current.scrollTop = 0;
-      isRestoringProgressRef.current = false;
-      return;
-    }
-
-    const spineIndex = toSpineChapterIndex(index);
-    const chapter = epubData.spine[spineIndex];
+    // 加载章节内容
+    const chapter = epubData.spine[index];
 
     if (!chapter) {
-      console.warn('章节不存在:', spineIndex);
+      console.warn('章节不存在:', index);
       return;
     }
 
     const content = await parser.getChapterContent(zip, chapter);
+
+    // 如果是第一章节且没有图片，但我们有封面图，显示封面
+    let finalContent = content || '';
+    if (index === 0 && coverImage && (!content || !content.includes('<img'))) {
+      finalContent = `<div style="text-align:center;padding:20px;"><img src="${coverImage}" alt="封面" style="max-width:100%;height:auto;border-radius:8px;" /></div>`;
+    }
+
     if (loadToken !== chapterLoadTokenRef.current) return;
-    setChapterContent(content);
+    setChapterContent(finalContent);
 
     // 恢复滚动位置（延迟执行，等待 DOM 渲染）
     if (scrollRestoreTimerRef.current) {
@@ -446,8 +476,8 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
       isRestoringProgressRef.current = true;
       scrollRestoreTimerRef.current = window.setTimeout(() => {
         const el = contentRef.current;
-        const savedReaderChapter = toReaderChapterIndex(savedProgress.currentChapter || 0);
-        if (el && savedReaderChapter === index) {
+        const savedChapter = savedProgress.currentChapter || 0;
+        if (el && savedChapter === index) {
           const maxScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
           const nextScrollTop = typeof savedProgress.scrollPercent === 'number'
             ? Math.round(maxScrollTop * savedProgress.scrollPercent / 100)
@@ -531,13 +561,8 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
 
   if (!epubData) return null;
 
-  const currentSpineChapter = Math.max(0, toSpineChapterIndex(currentChapter));
-  const progress = hasCoverPage && currentChapter === 0
-    ? 0
-    : Math.min(100, Math.round(((currentSpineChapter + 1) / epubData.spine.length) * 100));
-  const displayChapter = hasCoverPage && currentChapter === 0
-    ? '封面'
-    : `${currentSpineChapter + 1}/${epubData.spine.length}`;
+  const progress = Math.min(100, Math.round(((currentChapter + 1) / epubData.spine.length) * 100));
+  const displayChapter = `${currentChapter + 1}/${epubData.spine.length}`;
 
   return (
     <div className={`reader-wrapper ${isDarkTheme ? 'dark-theme' : ''}`}>
@@ -651,19 +676,11 @@ function EPUBReader({ book, onClose, savedProgress, onProgressChange }) {
                   <button className="toc-close" onClick={() => setShowToc(false)}>×</button>
                 </div>
                 <div className="toc-list">
-                  {hasCoverPage && (
-                    <div
-                      className={`toc-item ${currentChapter === 0 ? 'active' : ''}`}
-                      onClick={() => handleTocClick(0)}
-                    >
-                      封面
-                    </div>
-                  )}
                   {epubData.toc.map((item, i) => (
                     <div
                       key={i}
-                      className={`toc-item ${currentChapter === i + (hasCoverPage ? 1 : 0) ? 'active' : ''}`}
-                      onClick={() => handleTocClick(i + (hasCoverPage ? 1 : 0))}
+                      className={`toc-item ${currentChapter === i ? 'active' : ''}`}
+                      onClick={() => handleTocClick(i)}
                     >
                       {item.label}
                     </div>
@@ -682,6 +699,9 @@ function Reader(props) {
   const format = getBookFormat(props.book?.path);
   if (format === 'pdf') {
     return <PDFReader {...props} />;
+  }
+  if (format === 'txt') {
+    return <TXTReader {...props} />;
   }
   return <EPUBReader {...props} />;
 }

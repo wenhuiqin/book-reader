@@ -29,6 +29,32 @@ function getIndexHtmlPath() {
   return `file://${path.join(basePath, 'index.html')}`;
 }
 
+function toArrayBuffer(buffer) {
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
+
+async function getFileStatPayload(filePath) {
+  const stat = await fs.promises.stat(filePath);
+  return {
+    path: filePath,
+    name: path.basename(filePath),
+    size: stat.size,
+    mtimeMs: stat.mtimeMs,
+  };
+}
+
+async function readBinaryFile(filePath) {
+  const [content, statPayload] = await Promise.all([
+    fs.promises.readFile(filePath),
+    getFileStatPayload(filePath),
+  ]);
+
+  return {
+    ...statPayload,
+    content: toArrayBuffer(content),
+  };
+}
+
 function createShelfWindow() {
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   const url = isDev ? 'http://localhost:3000?window=shelf' : getIndexHtmlPath() + '?window=shelf';
@@ -149,18 +175,13 @@ ipcMain.handle('close-reader-window', async () => {
 // 选择本地书籍文件
 ipcMain.handle('select-book-file', async () => {
   const result = await dialog.showOpenDialog(shelfWindow, {
-    filters: [{ name: 'Books', extensions: ['epub', 'pdf'] }],
+    filters: [{ name: 'Books', extensions: ['epub', 'pdf', 'txt'] }],
     properties: ['openFile'],
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
     const filePath = result.filePaths[0];
-    const content = fs.readFileSync(filePath);
-    return {
-      path: filePath,
-      name: path.basename(filePath),
-      content: content.toString('base64'),
-    };
+    return getFileStatPayload(filePath);
   }
   return null;
 });
@@ -196,17 +217,62 @@ ipcMain.handle('show-in-finder', async (event, filePath) => {
   shell.showItemInFolder(filePath);
 });
 
+// 读取文件元信息（用于缓存校验）
+ipcMain.handle('get-file-metadata', async (event, filePath) => {
+  try {
+    return await getFileStatPayload(filePath);
+  } catch (error) {
+    return { error: error.message, path: filePath };
+  }
+});
+
 // 读取 EPUB 文件内容（用于解析）
 ipcMain.handle('read-epub-file', async (event, filePath) => {
   try {
-    const content = fs.readFileSync(filePath);
+    return await readBinaryFile(filePath);
+  } catch (error) {
+    return { error: error.message, path: filePath };
+  }
+});
+
+// 读取任意文件（用于 PDF 等二进制文件）
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const [content, statPayload] = await Promise.all([
+      fs.promises.readFile(filePath),
+      getFileStatPayload(filePath),
+    ]);
+
     return {
-      path: filePath,
-      name: path.basename(filePath),
+      ...statPayload,
       content: content.toString('base64'),
     };
   } catch (error) {
-    return { error: error.message };
+    return { error: error.message, path: filePath };
+  }
+});
+
+// 读取文本文件（自动检测编码，支持中文）
+ipcMain.handle('read-text-file', async (event, filePath) => {
+  try {
+    // 尝试多种编码读取中文文本
+    const iconv = require('iconv-lite');
+    const buffer = await fs.promises.readFile(filePath);
+
+    // 先尝试 UTF-8
+    let text = buffer.toString('utf8');
+    if (!/^[\x00-\x7F\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef\s\p{P}]*$/u.test(text) && text.includes('ï') || text.includes('')) {
+      // 如果不是有效文本，尝试 GBK/GB18030
+      try {
+        text = iconv.decode(buffer, 'gbk');
+      } catch (e) {
+        text = iconv.decode(buffer, 'gb18030');
+      }
+    }
+
+    return { content: text, path: filePath };
+  } catch (error) {
+    return { error: error.message, path: filePath };
   }
 });
 

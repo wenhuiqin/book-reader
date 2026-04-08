@@ -63,6 +63,14 @@ function App() {
     });
   };
 
+  const handleDeleteBook = (bookId) => {
+    setBooks((prev) => {
+      const next = prev.filter((book) => book.id !== bookId);
+      localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleProgressChange = (bookPath, patch) => {
     setReadingProgress((prev) => {
       const current = prev[bookPath] || {};
@@ -100,7 +108,7 @@ function App() {
   if (windowType === 'shelf') {
     return (
       <div className="app-container bookshelf-mode">
-        <Bookshelf books={books} onOpenBook={handleOpenBook} onAddBook={handleAddBook} />
+        <Bookshelf books={books} onOpenBook={handleOpenBook} onAddBook={handleAddBook} onDeleteBook={handleDeleteBook} />
       </div>
     );
   }

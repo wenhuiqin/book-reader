@@ -2,7 +2,7 @@ import React from 'react';
 import BookCard from './BookCard';
 import { getBookFormat } from '../utils/bookFormat';
 
-function Bookshelf({ books, onOpenBook, onAddBook }) {
+function Bookshelf({ books, onOpenBook, onAddBook, onDeleteBook }) {
   const handleAddFromLocal = async () => {
     try {
       if (!window.electronAPI) {
@@ -15,12 +15,20 @@ function Bookshelf({ books, onOpenBook, onAddBook }) {
           id: Date.now(),
           path: result.path,
           name: result.name,
+          size: result.size,
+          mtimeMs: result.mtimeMs,
           format: getBookFormat(result.path),
           addedAt: new Date(),
         });
       }
     } catch (error) {
       console.error('选择文件失败:', error);
+    }
+  };
+
+  const handleDeleteBook = (book) => {
+    if (window.confirm(`确定要删除"${book.name}"吗？`)) {
+      onDeleteBook(book.id);
     }
   };
 
@@ -46,13 +54,13 @@ function Bookshelf({ books, onOpenBook, onAddBook }) {
             <div className="empty-state">
             <div className="empty-state-icon">📚</div>
             <h2>书架空空如也</h2>
-            <p>点击上方按钮添加 EPUB 或 PDF 文档，开始您的阅读之旅吧！</p>
+            <p>点击上方按钮添加 EPUB、PDF 或 TXT 文档，开始您的阅读之旅吧！</p>
           </div>
         ) : (
           <>
             <div className="books-grid">
               {books.map((book) => (
-                <BookCard key={book.id} book={book} onClick={() => onOpenBook(book)} />
+                <BookCard key={book.id} book={book} onClick={() => onOpenBook(book)} onDelete={() => handleDeleteBook(book)} />
               ))}
             </div>
           </>
